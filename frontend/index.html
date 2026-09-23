@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YBot 체형 조절 스튜디오</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; overflow: hidden; background: #0f1117; color: #fff; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            width: 320px; max-height: calc(100vh - 40px);
+            background: rgba(22, 26, 38, 0.85);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px; padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+        }
+
+        .panel-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .panel-header h2 { font-size: 16px; font-weight: 700; color: #00f2fe; }
+        .status-badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; background: rgba(0, 242, 254, 0.2); color: #00f2fe; }
+
+        .tab-group { display: flex; background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 3px; gap: 4px; }
+        .tab-btn { flex: 1; padding: 8px 0; border: none; background: transparent; color: #aaa; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; }
+        .tab-btn.active { background: #00f2fe; color: #000; font-weight: bold; }
+
+        .tab-content { display: none; flex-direction: column; gap: 12px; }
+        .tab-content.active { display: flex; }
+
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: #ccc; display: flex; justify-content: space-between; }
+        .val-badge { color: #00f2fe; font-weight: bold; }
+
+        .form-group input[type="range"] {
+            width: 100%; height: 6px; background: #333; border-radius: 3px; outline: none; appearance: none; -webkit-appearance: none; cursor: pointer;
+        }
+        .form-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #00f2fe; box-shadow: 0 0 8px #00f2fe; cursor: pointer;
+        }
+
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .form-group input[type="number"] {
+            width: 100%; padding: 8px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; font-size: 12px; outline: none;
+        }
+
+        .primary-btn { width: 100%; padding: 10px; background: #00f2fe; border: none; border-radius: 8px; color: #000; font-weight: bold; font-size: 13px; cursor: pointer; }
+        .secondary-btn { width: 100%; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: #ccc; font-weight: 600; font-size: 12px; cursor: pointer; }
+
+        .camera-btn-group { display: flex; gap: 4px; }
+        .camera-btn { flex: 1; padding: 6px 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #aaa; font-size: 11px; cursor: pointer; }
+        .camera-btn:hover { background: rgba(0,242,254,0.2); color: #00f2fe; border-color: #00f2fe; }
+
+        #result-message { font-size: 12px; text-align: center; color: #00f2fe; }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="ui-panel">
+        <div class="panel-header">
+            <h2>🤖 YBot 체형 조절 스튜디오</h2>
+            <span class="status-badge" id="status-badge">로딩 중...</span>
+        </div>
+
+        <div class="tab-group">
+            <button class="tab-btn active" data-tab="tab-manual">부위별 미세조절</button>
+            <button class="tab-btn" data-tab="tab-ai">AI 체형 추천</button>
+        </div>
+
+        <div id="tab-manual" class="tab-content active">
+            <div class="form-group">
+                <label>어깨 넓이 <span class="val-badge" id="val-shoulder">1.00x</span></label>
+                <input type="range" id="slider-shoulder" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>가슴 크기 <span class="val-badge" id="val-chest">1.00x</span></label>
+                <input type="range" id="slider-chest" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>허리 두께 <span class="val-badge" id="val-waist">1.00x</span></label>
+                <input type="range" id="slider-waist" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>골반/엉덩이 <span class="val-badge" id="val-pelvis">1.00x</span></label>
+                <input type="range" id="slider-pelvis" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>팔 두께 <span class="val-badge" id="val-arm">1.00x</span></label>
+                <input type="range" id="slider-arm" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <!-- 🦵 다리 분리: 허벅지 / 종아리 -->
+            <div class="form-group">
+                <label>허벅지 두께 <span class="val-badge" id="val-thigh">1.00x</span></label>
+                <input type="range" id="slider-thigh" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>종아리 두께 <span class="val-badge" id="val-calf">1.00x</span></label>
+                <input type="range" id="slider-calf" min="0.5" max="3.0" step="0.02" value="1.0">
+            </div>
+            <button class="secondary-btn" id="reset-btn">🔄 체형 초기화</button>
+        </div>
+
+        <div id="tab-ai" class="tab-content">
+            <div class="input-grid">
+                <div class="form-group"><label>키 (cm)</label><input type="number" id="height" value="175"></div>
+                <div class="form-group"><label>몸무게 (kg)</label><input type="number" id="weight" value="75"></div>
+            </div>
+            <button class="primary-btn" id="generate-btn">✨ YBot 체형 적용하기</button>
+        </div>
+
+        <div id="result-message"></div>
+
+        <div class="form-group">
+            <label>카메라 시점</label>
+            <div class="camera-btn-group">
+                <button class="camera-btn" id="cam-front">전면</button>
+                <button class="camera-btn" id="cam-side">측면</button>
+                <button class="camera-btn" id="cam-back">후면</button>
+                <button class="camera-btn" id="cam-reset">전신</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
